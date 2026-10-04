@@ -15,12 +15,12 @@ jobs:
           sudo apt-get install -y unzip p7zip-full python3-pip
           pip install --upgrade gdown unitypy
 
-      # 2. تحميل الملف مباشرة من جوجل درايف بالأمر المحدث المتوافق تماماً
+      # 2. تحميل الملف مباشرة عبر كود Python الداخلي (بدون مشاكل الوسوم)
       - name: Download Archive from Google Drive
         run: |
-          echo "[+] Downloading file from Google Drive..."
-          gdown "https://drive.google.com/uc?id=1lvXuAKT4h7ttYBKR16Nl0DneOw8JpXWd" -O input_game.jar --fuzzy
-          echo "[+] Download completed! Checking file size:"
+          echo "[+] Downloading file from Google Drive via Python API..."
+          python3 -c "import gdown; gdown.download(id='1lvXuAKT4h7ttYBKR16Nl0DneOw8JpXWd', output='input_game.jar', quiet=False)"
+          echo "[+] Download finished! Checking file:"
           ls -lh input_game.jar
 
       # 3. فك ضغط ملف الـ .jar واستعراض محتوياته بدقة
