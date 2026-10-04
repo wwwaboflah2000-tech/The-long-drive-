@@ -1,62 +1,58 @@
 name: The Long Drive Android Porter
 
 on:
-  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً بضغطة زر واحدة
+  workflow_dispatch:
 
 jobs:
   prepare-and-inspect:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. إعداد بيئة بايثون وجافا على خادم جيت هاب
-      - name: Set up Environment
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install Tools & Dependencies
+      # 1. إعداد بيئة النظام وتثبيت أدوات التحميل وفك الضغط
+      - name: Set up Environment & Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip p7zip-full
-          pip install gdown unitypy
+          sudo apt-get install -y unzip p7zip-full python3-pip
+          pip install --upgrade gdown unitypy
 
-      # 2. تحميل الملف مباشرة من جوجل درايف باستخدام File ID الخاص بك
+      # 2. تحميل الملف مباشرة من جوجل درايف بالأمر المحدث المتوافق تماماً
       - name: Download Archive from Google Drive
         run: |
           echo "[+] Downloading file from Google Drive..."
-          gdown --id 1lvXuAKT4h7ttYBKR16Nl0DneOw8JpXWd -O input_game.jar
+          gdown "https://drive.google.com/uc?id=1lvXuAKT4h7ttYBKR16Nl0DneOw8JpXWd" -O input_game.jar --fuzzy
+          echo "[+] Download completed! Checking file size:"
           ls -lh input_game.jar
 
-      # 3. فك ضغط الـ .jar واستعراض محتوياته
+      # 3. فك ضغط ملف الـ .jar واستعراض محتوياته بدقة
       - name: Extract and Inspect Contents
         run: |
-          echo "[+] Extracting .jar file..."
+          echo "[+] Extracting .jar archive..."
           mkdir -p workspace/
-          # جرب الفك كـ zip/jar، وإذا كان نوعاً آخر سيتولى أمره 7z
           unzip -q input_game.jar -d workspace/ || 7z x input_game.jar -oworkspace/
           
-          echo "[+] Directory structure extracted:"
+          echo "[+] Root files in workspace:"
           ls -la workspace/
           
-          # فحص المجلد الداخلي
-          if [ -d "workspace/TheLongDrive_Data" ]; then
-            echo "[SUCCESS] TheLongDrive_Data found directly!"
-            ls -lh workspace/TheLongDrive_Data/
+          # البحث التلقائي عن مجلد البيانات _Data
+          DATA_DIR=$(find workspace/ -maxdepth 2 -type d -name "*_Data" | head -n 1)
+          if [ -n "$DATA_DIR" ]; then
+            echo "[SUCCESS] Found Game Data Directory at: $DATA_DIR"
+            ls -lh "$DATA_DIR"
           fi
 
-      # 4. تنظيف إعدادات الإقلاع boot.config فوراً
+      # 4. تنظيف إعدادات الإقلاع boot.config لمنع انهيار اللعبة على الهاتف
       - name: Patch boot.config (Strip VR / OpenXR)
         run: |
           BOOT_FILE=$(find workspace/ -name "boot.config" | head -n 1)
           if [ -f "$BOOT_FILE" ]; then
             echo "[+] Found boot.config at: $BOOT_FILE"
-            # حذف أسطر الواقع الافتراضي OpenXR التي تسبب انهيار الهواتف
+            # حذف أسطر الواقع الافتراضي OpenXR التي تغلق اللعبة على هواتف الأندرويد
             sed -i '/xrsdk-pre-init-library/d' "$BOOT_FILE"
-            # إضافة إعدادات التزامن للهاتف
+            # إضافة إعدادات التزامن وتثبيت الفريمات للشاشات
             echo "vrr-rate-limit=60" >> "$BOOT_FILE"
             echo "target-frame-rate=60" >> "$BOOT_FILE"
             echo "[SUCCESS] Patched boot.config content:"
             cat "$BOOT_FILE"
           else
-            echo "[!] boot.config not found in extracted files."
+            echo "[!] Notice: boot.config not found directly."
           fi
